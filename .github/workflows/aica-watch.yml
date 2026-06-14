@@ -1,0 +1,43 @@
+name: AICA Batch Watch
+
+on:
+  schedule:
+    # Every hour, on the hour (UTC). GitHub may delay scheduled runs under load.
+    - cron: "0 * * * *"
+  workflow_dispatch:
+    inputs:
+      cities:
+        description: "Cities to highlight (comma-separated). Overrides config.json and the WATCH_CITIES variable."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: aica-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run watcher
+        env:
+          # Precedence handled here: manual input first, else repo variable, else (empty -> config.json).
+          WATCH_CITIES: ${{ github.event.inputs.cities || vars.WATCH_CITIES }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          # Optional: set these as repo secrets to also get Telegram alerts.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python aica_watch.py
